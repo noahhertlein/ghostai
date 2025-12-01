@@ -8,6 +8,7 @@
 
 ## How We Use Unsplash
 
+
 We integrate Unsplash images to enhance our published articles with relevant, high-quality photography that:
 
 1. **Improves Reader Engagement** - Visual content increases article readership and time-on-page
