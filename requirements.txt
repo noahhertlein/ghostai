@@ -1,0 +1,20 @@
+# Ghost Auto Blog Generator Dependencies
+
+# Google Gemini AI
+google-generativeai>=0.8.0
+
+# Telegram Bot
+python-telegram-bot>=21.0
+
+# HTTP Requests
+requests>=2.31.0
+
+# JWT for Ghost Admin API authentication
+PyJWT>=2.8.0
+
+# Scheduling
+APScheduler>=3.10.0
+
+# Environment variable management
+python-dotenv>=1.0.0
+

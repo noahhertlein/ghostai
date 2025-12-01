@@ -1,117 +1,166 @@
-For discussion about this project. Please refer to this forum post:
-https://forum.ghost.org/t/ghostai-ghost-openai-integration/37578
+# Ghost Auto Blog Generator
 
-# Ghost Blog Relationship
+Automated blog post generator that uses **Gemini AI** to create tech content and publishes to your **Ghost CMS** blog. Features a **Telegram bot** for reviewing and approving posts before publishing.
 
-GhostAI Related Posts is a project that utilizes OpenAI Embedding API to generate related blog post tags for a given Ghost Blogging site. The project provides the functionality to display "Related Posts" at the bottom of each blog post. Currently, this feature is not available in Ghost.
+## Features
 
+- 🤖 **AI-Powered Content** - Uses Gemini 3 Pro Preview to generate high-quality tech blog posts
+- 📱 **Telegram Approval** - Review drafts via Telegram before publishing
+- ⏰ **Scheduled Generation** - Automatically generates posts on a configurable schedule
+- 🏷️ **Auto-Tagging** - AI generates relevant tags for SEO
+- 🐳 **Docker Ready** - Easy deployment via Docker/Coolify
 
-The project comprises of two scripts that can be executed either on a local machine or directly on the server. Unless the site has tens of thousands of blog posts, running the scripts on a local machine should suffice.
+## Quick Start
 
-The first script iterates through all public blog posts on the server and extracts the text content, which is then sent to the OpenAI (Ada model) to generate a set of vectors. These vectors are then stored in a text file (find them in ./output/). The script also supports incremental generation, which means that it only generates vectors for blog posts that have not yet been processed.
-
-The second script iterates through all the vectors in the directory and ranks their similarity by giving a score. For each blog post, a few other blog posts with high similarity ranking will be grouped together. Ghost internal tagging feature is used for the grouping mechanism, and each blog post ID becomes the internal tag name.
-
-To display the related blog posts at the bottom of another blog post, the post.hbs template needs to be edited by inserting a simple tag filter. This design works with both self-hosted Ghost sites and Ghost Pro sites (hosted by the Ghost team) and does not require any additional configuration, database changes, or other adjustments.
-
-Users can contribute to the GhostAI Related Posts project by submitting pull requests on Github. We welcome any improvements to the project, including bug fixes, new features, and enhancements.
-
-## Requirements
-
-- Python 3.7.1+
-
-To ensure compatibility with our customers' Python versions, we recommend using Python 3.7.1 or higher.
-
-## Installation
-
-Before starting the script, ensure that the following packages are installed:
+### 1. Clone the Repository
 
 ```bash
-pip install --upgrade pip
-pip install openai pandas matplotlib scipy scikit-learn plotly pyjwt
+git clone https://github.com/yourusername/ghostai.git
+cd ghostai
 ```
 
-## Usage
+### 2. Set Up Environment Variables
 
-The library needs to be configured with your OpenAI account's API key. OpenAI API Key is available on their webiste at https://platform.openai.com/account/api-keys. Ghost Admin API Key can be found by following instructions at https://ghost.org/docs/admin-api/#token-authentication
+Create a `.env` file in the project root:
 
-Either set it as the `OPENAI_API_KEY` & `GHOST_ADMIN_API_KEY` environment variable before using the library:
+```env
+# Ghost CMS Configuration
+GHOST_ADMIN_API_KEY=your_key_id:your_secret
+GHOST_URL=https://your-ghost-blog.com
+
+# Gemini AI Configuration
+GEMINI_API_KEY=your_gemini_api_key
+GEMINI_MODEL=gemini-3-pro-preview
+
+# Telegram Bot Configuration
+TELEGRAM_BOT_TOKEN=your_bot_token_from_botfather
+TELEGRAM_USER_ID=your_numeric_telegram_id
+
+# Schedule (optional, default: 24 hours)
+POST_SCHEDULE_HOURS=24
+```
+
+### 3. Get Your Credentials
+
+**Ghost Admin API Key:**
+1. Go to Ghost Admin → Settings → Integrations
+2. Click "Add custom integration"
+3. Copy the Admin API key (format: `id:secret`)
+
+**Gemini API Key:**
+1. Go to [Google AI Studio](https://aistudio.google.com/apikey)
+2. Create a new API key
+
+**Telegram Bot Token:**
+1. Message [@BotFather](https://t.me/BotFather) on Telegram
+2. Send `/newbot` and follow the prompts
+3. Copy the token it gives you
+
+**Telegram User ID:**
+1. Message [@userinfobot](https://t.me/userinfobot) on Telegram
+2. It will reply with your numeric ID
+
+### 4. Run with Docker (Recommended)
 
 ```bash
-export OPENAI_API_KEY='sk-...'
-export GHOST_API_KEY='...'
-
+docker compose up -d
 ```
 
-Or set `OPENAI_API_KEY` & `GHOST_ADMIN_API_KEY` to `./.env`:
+Or build and run manually:
 
-```python
-[BASIC]
-GHOST_ADMIN_API_KEY={YOUR_GHOST_ADMIN_API_KEY}
-GHOST_SITE_URL={YOUR_BLOG_SITE_URL}  ** Make sure it does not end with / **
-OPENAI_API_KEY={YOUR_OPENAI_API_KEY}
-EMBEDDING_OUTPUT_PATH=./output
-MAX_RELATED_BLOG_COUNT=20
+```bash
+docker build -t ghost-auto-blog .
+docker run -d --env-file .env ghost-auto-blog
 ```
 
-After all set, start the script as follows:
+### 5. Run Locally (Development)
 
-```sh
-python ghost_embeddings.py
+```bash
+# Install dependencies
+pip install -r requirements.txt
 
+# Run the bot
+python -m src.main
 ```
 
-This will generate the vector files in the file system.
+## Telegram Commands
 
-Once everything looks good, you are now ready to run another script to tag the related posts back to your Ghost site:
+Once running, message your bot on Telegram:
 
-```sh
-python ghost_relation_tags.py
+| Command | Description |
+|---------|-------------|
+| `/start` | Show welcome message |
+| `/generate` | Manually create a new blog post |
+| `/status` | Check bot and API connection status |
+| `/topics` | Generate 5 topic ideas |
+| `/help` | Show help message |
+
+## Approval Workflow
+
+1. Bot generates a new post (scheduled or via `/generate`)
+2. You receive a draft preview on Telegram
+3. Choose an action:
+   - ✅ **Approve** - Publishes to Ghost immediately
+   - ❌ **Reject** - Discards the draft
+   - 🔄 **Regenerate** - Creates a new version
+
+## Deployment on Coolify
+
+1. Connect your GitHub repository to Coolify
+2. Select "Docker Compose" as the build method
+3. Add environment variables in Coolify's settings:
+   - `GHOST_ADMIN_API_KEY`
+   - `GHOST_URL`
+   - `GEMINI_API_KEY`
+   - `TELEGRAM_BOT_TOKEN`
+   - `TELEGRAM_USER_ID`
+   - `POST_SCHEDULE_HOURS` (optional)
+4. Deploy!
+
+## Project Structure
 
 ```
-
-We also provided a script to generate tags for your blogs. 
-```sh
-python ghost_tag_blogs.py
+ghostai/
+├── src/
+│   ├── __init__.py
+│   ├── main.py              # Entry point & scheduler
+│   ├── config.py            # Configuration management
+│   ├── gemini_client.py     # Gemini AI integration
+│   ├── ghost_client.py      # Ghost Admin API client
+│   └── telegram_bot.py      # Telegram bot & approval flow
+├── Dockerfile
+├── docker-compose.yml
+├── requirements.txt
+└── README.md
 ```
 
-Please note that the script will not overwrite your existing tags; instead, it will merely add new ones.
+## Configuration Options
 
-To overwrite all your existing tags, please follow these steps:
-```sh
-python ghost_tag_blogs.py reset
-```
-By default, the script will generate 5 tags for each blog. You can change the number in .env config file if you would like to see more.
-```sh
-BLOG_TAG_COUNT=5
-```
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `GHOST_ADMIN_API_KEY` | Yes | - | Ghost Admin API key |
+| `GHOST_URL` | Yes | - | Your Ghost blog URL |
+| `GEMINI_API_KEY` | Yes | - | Google Gemini API key |
+| `TELEGRAM_BOT_TOKEN` | Yes | - | Telegram bot token |
+| `TELEGRAM_USER_ID` | Yes | - | Your Telegram user ID |
+| `GEMINI_MODEL` | No | `gemini-3-pro-preview` | Gemini model to use |
+| `POST_SCHEDULE_HOURS` | No | `24` | Hours between auto-posts |
 
-We've also provided a script to clean up all tags:
-```sh
-#Clean up public tags. NOTE! This will not only delete tags generated by the script, but also all existing public tags, include your original tags (if you have any)
-python ghost_tag_cleanup.py public
-#Clean up internal tags
-python ghost_tag_cleanup.py internal
-#Clean up both
-python ghost_tag_cleanup.py both
-```
+## Content Focus
 
+The bot generates content focused on:
+- Cloud Infrastructure & DevOps
+- AI & Machine Learning
+- Software Development
+- Cybersecurity
+- Kubernetes, Docker, CI/CD
+- API Development
+- Infrastructure as Code
 
-To check the tagging, go to the Ghost console, click on one of the post, on the right hand side where you can assign tagging for the post, you should see a few internal tags generated by the script already.
+## License
 
-To show the related posts, edit your post.hbs template. Here is an example for the Casper template:
+MIT License - feel free to use and modify for your own projects.
 
-```hbs
-{{#get "posts" include="tags,authors" limit="12" filter="id:-{{id}}+tag:{{id}}" as |more_posts|}}
-    {{#if more_posts}}
-        <aside class="read-more-wrap">
-            <div class="read-more inner">
-                {{#foreach more_posts}}
-                    {{> "post-card"}}
-                {{/foreach}}
-            </div>
-        </aside>
-    {{/if}}
-{{/get}}
-```
+## Support
 
+For issues and questions, please open a GitHub issue.

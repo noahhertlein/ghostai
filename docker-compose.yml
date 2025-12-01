@@ -1,0 +1,32 @@
+# Ghost Auto Blog Generator
+# Docker Compose for local development and Coolify deployment
+
+services:
+  ghost-auto-blog:
+    build: .
+    container_name: ghost-auto-blog
+    restart: unless-stopped
+    
+    # Environment variables - set these in Coolify or use .env file
+    environment:
+      - GHOST_ADMIN_API_KEY=${GHOST_ADMIN_API_KEY}
+      - GHOST_URL=${GHOST_URL}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-3-pro-preview}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_USER_ID=${TELEGRAM_USER_ID}
+      - POST_SCHEDULE_HOURS=${POST_SCHEDULE_HOURS:-24}
+    
+    # Optional: Mount .env file for local development
+    # env_file:
+    #   - .env
+    
+    # No ports needed - bot uses outbound connections only
+    
+    # Optional: Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
