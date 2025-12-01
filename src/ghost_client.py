@@ -70,7 +70,7 @@ class GhostClient:
     
     def publish_post(self, blog_post: BlogPost, status: str = 'published', 
                      feature_image: str = None, feature_image_alt: str = None,
-                     feature_image_caption: str = None) -> dict:
+                     feature_image_caption: str = None, html_override: str = None) -> dict:
         """
         Publish a blog post to Ghost.
         
@@ -80,6 +80,7 @@ class GhostClient:
             feature_image: URL of the feature/hero image
             feature_image_alt: Alt text for the feature image
             feature_image_caption: Caption/attribution for the feature image
+            html_override: Optional enriched HTML to use instead of blog_post.html_content
         
         Returns:
             The created post data from Ghost API
@@ -89,12 +90,15 @@ class GhostClient:
         # Build tags array
         tags = [{'name': tag} for tag in blog_post.tags]
         
+        # Use override HTML if provided, otherwise use blog_post's HTML
+        html_content = html_override if html_override else blog_post.html_content
+        
         # Build the post payload
         payload = {
             'posts': [{
                 'title': blog_post.title,
                 'slug': blog_post.slug,
-                'html': blog_post.html_content,
+                'html': html_content,
                 'status': status,
                 'meta_description': blog_post.meta_description,
                 'tags': tags,

@@ -16,7 +16,7 @@ services:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - TELEGRAM_USER_ID=${TELEGRAM_USER_ID}
       - UNSPLASH_ACCESS_KEY=${UNSPLASH_ACCESS_KEY}
-      - POST_SCHEDULE_HOURS=${POST_SCHEDULE_HOURS:-24}
+      - YOUTUBE_API_KEY=${YOUTUBE_API_KEY}
     
     # Optional: Mount .env file for local development
     # env_file:

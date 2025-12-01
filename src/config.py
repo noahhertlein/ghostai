@@ -37,6 +37,9 @@ class Config:
     # Unsplash Configuration
     unsplash_access_key: str
     
+    # YouTube Configuration
+    youtube_api_key: str
+    
     # Fields with defaults must come last
     gemini_model: str = "gemini-3-pro-preview"
     post_schedule_hours: int = 24  # Generate a post every N hours
@@ -73,6 +76,7 @@ def load_config() -> Config:
     telegram_bot_token = os.environ.get('TELEGRAM_BOT_TOKEN')
     telegram_user_id = os.environ.get('TELEGRAM_USER_ID')
     unsplash_access_key = os.environ.get('UNSPLASH_ACCESS_KEY')
+    youtube_api_key = os.environ.get('YOUTUBE_API_KEY')
     
     # Validate required variables
     missing = []
@@ -88,6 +92,8 @@ def load_config() -> Config:
         missing.append('TELEGRAM_USER_ID')
     if not unsplash_access_key:
         missing.append('UNSPLASH_ACCESS_KEY')
+    if not youtube_api_key:
+        missing.append('YOUTUBE_API_KEY')
     
     if missing:
         raise ValueError(f"Missing required environment variables: {', '.join(missing)}")
@@ -103,6 +109,7 @@ def load_config() -> Config:
         telegram_bot_token=telegram_bot_token,
         telegram_user_id=int(telegram_user_id),
         unsplash_access_key=unsplash_access_key,
+        youtube_api_key=youtube_api_key,
         gemini_model=gemini_model,
         post_schedule_hours=post_schedule_hours,
     )

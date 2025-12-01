@@ -16,7 +16,7 @@ from .config import get_config
 from .telegram_bot import TelegramBot
 from .ghost_client import GhostClient
 from .gemini_client import GeminiClient
-from .unsplash_client import UnsplashClient
+from .content_enricher import ContentEnricher
 
 # Configure logging
 logging.basicConfig(
@@ -48,7 +48,7 @@ class BlogGenerator:
             # Initialize clients
             gemini = GeminiClient()
             ghost = GhostClient()
-            unsplash = UnsplashClient()
+            enricher = ContentEnricher()
             
             # Get recent titles to avoid duplicates
             recent_titles = ghost.get_recent_titles(limit=20)
@@ -60,55 +60,60 @@ class BlogGenerator:
             
             # Generate full blog post
             blog_post = gemini.generate_blog_post(topic)
-            logger.info(f"Generated blog post: {blog_post.title}")
+            logger.info(f"Generated blog post: {blog_post.title} with {len(blog_post.sections)} sections")
             
-            # Fetch a relevant image from Unsplash
-            image = unsplash.get_image_for_topic(topic, blog_post.image_keywords)
-            if image:
-                logger.info(f"Found image by {image.photographer_name}")
-            else:
-                logger.warning("No image found for topic")
+            # Enrich with images and video
+            logger.info("Enriching content with images and video...")
+            enriched = enricher.enrich(blog_post)
             
-            # Prepare image data for Ghost
-            feature_image = image.url if image else None
-            feature_image_alt = image.alt_text if image else None
-            feature_image_caption = image.get_attribution_html() if image else None
+            image_count = len(enriched.section_images) + (1 if enriched.hero_image else 0)
+            video_status = "✅" if enriched.video else "❌"
+            logger.info(f"Enriched: {image_count} images, video: {video_status}")
             
-            # Auto-publish to Ghost
+            # Prepare feature image data
+            feature_image = enriched.hero_image.url if enriched.hero_image else None
+            feature_image_alt = enriched.hero_image.alt_text if enriched.hero_image else None
+            feature_image_caption = enriched.hero_image.get_attribution_html() if enriched.hero_image else None
+            
+            # Auto-publish to Ghost with enriched content
             post_data = ghost.publish_post(
                 blog_post,
                 status='published',
                 feature_image=feature_image,
                 feature_image_alt=feature_image_alt,
-                feature_image_caption=feature_image_caption
+                feature_image_caption=feature_image_caption,
+                html_override=enriched.html_content  # Use enriched HTML
             )
             
             post_url = f"{self.config.ghost_url}/{blog_post.slug}/"
             logger.info(f"Auto-published: {blog_post.title}")
             
-            # Send notification to Telegram (no approval needed)
-            image_status = f"📸 by {image.photographer_name}" if image else "⚠️ No image"
+            # Send notification to Telegram
+            hero_status = f"📸 by {enriched.hero_image.photographer_name}" if enriched.hero_image else "⚠️ No hero"
+            video_info = f"🎬 {enriched.video.title[:30]}..." if enriched.video else "🎬 No video"
             tags_str = ", ".join(blog_post.tags)
             
             await self.bot.app.bot.send_message(
                 chat_id=self.config.telegram_user_id,
                 text=(
-                    f"✅ <b>Auto-Published New Post!</b>\n\n"
+                    f"✅ <b>Auto-Published Rich Post!</b>\n\n"
                     f"<b>Title:</b> {blog_post.title}\n\n"
+                    f"<b>Sections:</b> {len(blog_post.sections)}\n"
+                    f"<b>Images:</b> {image_count} total\n"
+                    f"<b>Video:</b> {video_info}\n\n"
                     f"<b>Tags:</b> {tags_str}\n\n"
-                    f"<b>Image:</b> {image_status}\n\n"
                     f"<b>URL:</b> {post_url}"
                 ),
                 parse_mode='HTML'
             )
             
-            # Send image preview
-            if image:
+            # Send hero image preview
+            if enriched.hero_image:
                 try:
                     await self.bot.app.bot.send_photo(
                         chat_id=self.config.telegram_user_id,
-                        photo=image.thumb_url,
-                        caption=f"🖼️ Feature image for: {blog_post.title[:50]}..."
+                        photo=enriched.hero_image.thumb_url,
+                        caption=f"🖼️ Hero: {hero_status}"
                     )
                 except Exception:
                     pass

@@ -17,14 +17,35 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
+class BlogSection:
+    """Represents a section of a blog post."""
+    heading: str
+    content: str  # HTML content for this section
+    image_keyword: str  # Keyword for finding an image for this section
+
+
+@dataclass
 class BlogPost:
     """Represents a generated blog post."""
     title: str
     slug: str
     meta_description: str
-    html_content: str
+    intro: str  # Introduction paragraph (HTML)
+    sections: list[BlogSection]  # Main content sections
+    conclusion: str  # Conclusion paragraph (HTML)
     tags: list[str]
-    image_keywords: list[str]  # Keywords for Unsplash image search
+    image_keywords: list[str]  # Keywords for hero image
+    video_keywords: list[str]  # Keywords for YouTube search
+    
+    @property
+    def html_content(self) -> str:
+        """Generate the full HTML content (without images/video - those are added later)."""
+        parts = [self.intro]
+        for section in self.sections:
+            parts.append(f"<h2>{section.heading}</h2>")
+            parts.append(section.content)
+        parts.append(self.conclusion)
+        return "\n".join(parts)
     
     def to_dict(self) -> dict:
         return {
@@ -34,6 +55,7 @@ class BlogPost:
             'html_content': self.html_content,
             'tags': self.tags,
             'image_keywords': self.image_keywords,
+            'video_keywords': self.video_keywords,
         }
 
 
@@ -125,7 +147,7 @@ Respond with ONLY the topic title, nothing else. No quotes, no explanation."""
             raise
     
     def generate_blog_post(self, topic: str) -> BlogPost:
-        """Generate a full blog post for the given topic."""
+        """Generate a full blog post for the given topic with rich sections."""
         
         prompt = f"""Write a professional, engaging blog post about: "{topic}"
 
@@ -138,33 +160,51 @@ Requirements:
 1. Write in a professional but approachable tone
 2. Include practical insights, examples, or actionable advice
 3. Use proper HTML formatting for Ghost CMS
-4. Length: 800-1200 words
+4. Length: 1000-1500 words total
 5. Make it SEO-optimized
+6. Structure with clear sections (3-4 main sections)
 
 Respond in this exact JSON format (no markdown code blocks, just raw JSON):
 {{
     "title": "Engaging SEO-friendly title",
     "slug": "url-friendly-slug-with-dashes",
     "meta_description": "Compelling 150-160 character description for search results",
-    "html_content": "<p>Full HTML content here...</p>",
+    "intro": "<p>Engaging introduction paragraph that hooks the reader...</p>",
+    "sections": [
+        {{
+            "heading": "First Section Title",
+            "content": "<p>Section content with multiple paragraphs...</p>",
+            "image_keyword": "relevant visual keyword"
+        }},
+        {{
+            "heading": "Second Section Title", 
+            "content": "<p>Section content...</p>",
+            "image_keyword": "relevant visual keyword"
+        }},
+        {{
+            "heading": "Third Section Title",
+            "content": "<p>Section content...</p>",
+            "image_keyword": "relevant visual keyword"
+        }}
+    ],
+    "conclusion": "<p>Strong conclusion with call-to-action...</p>",
     "tags": ["Tag1", "Tag2", "Tag3", "Tag4", "Tag5"],
-    "image_keywords": ["keyword1", "keyword2", "keyword3"]
+    "image_keywords": ["hero image keyword1", "keyword2", "keyword3"],
+    "video_keywords": ["youtube search term1", "search term2"]
 }}
 
-For html_content:
-- Use <h2> for main sections, <h3> for subsections
+For HTML content in intro, sections, and conclusion:
 - Use <p> for paragraphs
 - Use <ul>/<li> or <ol>/<li> for lists
 - Use <strong> for emphasis
 - Use <blockquote> for important quotes or callouts
 - Use <code> for inline code mentions
 - Use <pre><code> for code blocks
-- Do NOT include <h1> (Ghost adds the title automatically)
+- Do NOT use <h2> in section content (headings are separate)
 - Do NOT include any scripts or external resources
 
-Tags should be single words or short phrases, capitalized properly.
-
-image_keywords should be 3 simple, visual search terms for finding a relevant header image (e.g., "cloud computing", "server room", "cybersecurity")."""
+Each section's image_keyword should be a simple visual search term for Unsplash.
+video_keywords should be terms to find a relevant YouTube tutorial/explainer."""
 
         try:
             response = self.model.generate_content(prompt)
@@ -176,21 +216,33 @@ image_keywords should be 3 simple, visual search terms for finding a relevant he
                 response_text = json_match.group()
             
             # Clean up control characters that break JSON parsing
-            # Replace literal newlines inside strings with escaped versions
             response_text = self._clean_json_response(response_text)
             
             data = json.loads(response_text)
+            
+            # Parse sections
+            sections = []
+            for section_data in data.get('sections', []):
+                section = BlogSection(
+                    heading=section_data['heading'],
+                    content=section_data['content'],
+                    image_keyword=section_data.get('image_keyword', topic),
+                )
+                sections.append(section)
             
             blog_post = BlogPost(
                 title=data['title'],
                 slug=data['slug'].lower().replace(' ', '-'),
                 meta_description=data['meta_description'],
-                html_content=data['html_content'],
-                tags=data['tags'][:5],  # Limit to 5 tags
-                image_keywords=data.get('image_keywords', [topic])[:3],  # Fallback to topic
+                intro=data.get('intro', '<p></p>'),
+                sections=sections,
+                conclusion=data.get('conclusion', '<p></p>'),
+                tags=data['tags'][:5],
+                image_keywords=data.get('image_keywords', [topic])[:3],
+                video_keywords=data.get('video_keywords', [topic])[:2],
             )
             
-            logger.info(f"Generated blog post: {blog_post.title}")
+            logger.info(f"Generated blog post: {blog_post.title} with {len(sections)} sections")
             return blog_post
             
         except json.JSONDecodeError as e:
@@ -218,13 +270,17 @@ Respond in this exact JSON format (no markdown code blocks, just raw JSON):
     "title": "Engaging SEO-friendly title",
     "slug": "url-friendly-slug-with-dashes",
     "meta_description": "Compelling 150-160 character description for search results",
-    "html_content": "<p>Full HTML content here...</p>",
+    "intro": "<p>Engaging introduction...</p>",
+    "sections": [
+        {{"heading": "Section Title", "content": "<p>Content...</p>", "image_keyword": "keyword"}}
+    ],
+    "conclusion": "<p>Conclusion...</p>",
     "tags": ["Tag1", "Tag2", "Tag3", "Tag4", "Tag5"],
-    "image_keywords": ["keyword1", "keyword2", "keyword3"]
+    "image_keywords": ["keyword1", "keyword2", "keyword3"],
+    "video_keywords": ["youtube search term"]
 }}
 
-Use proper HTML formatting. Length: 800-1200 words.
-image_keywords should be 3 simple visual search terms for finding a header image."""
+Use proper HTML formatting. Length: 1000-1500 words with 3-4 sections."""
 
         try:
             response = self.model.generate_content(prompt)
@@ -239,13 +295,26 @@ image_keywords should be 3 simple visual search terms for finding a header image
             
             data = json.loads(response_text)
             
+            # Parse sections
+            sections = []
+            for section_data in data.get('sections', []):
+                section = BlogSection(
+                    heading=section_data['heading'],
+                    content=section_data['content'],
+                    image_keyword=section_data.get('image_keyword', topic),
+                )
+                sections.append(section)
+            
             return BlogPost(
                 title=data['title'],
                 slug=data['slug'].lower().replace(' ', '-'),
                 meta_description=data['meta_description'],
-                html_content=data['html_content'],
+                intro=data.get('intro', '<p></p>'),
+                sections=sections,
+                conclusion=data.get('conclusion', '<p></p>'),
                 tags=data['tags'][:5],
                 image_keywords=data.get('image_keywords', [topic])[:3],
+                video_keywords=data.get('video_keywords', [topic])[:2],
             )
         except Exception as e:
             logger.error(f"Error regenerating blog post: {e}")
