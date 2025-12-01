@@ -66,7 +66,7 @@ class UnsplashClient:
         }
         
         try:
-            response = requests.get(url, headers=self.headers, params=params)
+            response = requests.get(url, headers=self.headers, params=params, timeout=30)
             response.raise_for_status()
             data = response.json()
             
@@ -114,7 +114,7 @@ class UnsplashClient:
         }
         
         try:
-            response = requests.get(url, headers=self.headers, params=params)
+            response = requests.get(url, headers=self.headers, params=params, timeout=30)
             response.raise_for_status()
             photo = response.json()
             
@@ -148,7 +148,7 @@ class UnsplashClient:
             True if successful
         """
         try:
-            response = requests.get(image.download_url, headers=self.headers)
+            response = requests.get(image.download_url, headers=self.headers, timeout=15)
             response.raise_for_status()
             logger.info(f"Triggered download for image: {image.id}")
             return True
@@ -192,4 +192,5 @@ class UnsplashClient:
         
         logger.warning(f"No image found for topic: {topic}")
         return None
+
 

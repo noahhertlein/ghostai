@@ -18,3 +18,4 @@ APScheduler>=3.10.0
 # Environment variable management
 python-dotenv>=1.0.0
 
+

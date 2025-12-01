@@ -122,3 +122,4 @@ class ContentEnricher:
             f'</figure>'
         )
 
+

@@ -40,10 +40,12 @@ class BlogGenerator:
         self.scheduler = AsyncIOScheduler()
         self.running = False
     
-    async def generate_and_auto_publish(self):
+    async def generate_and_auto_publish(self, retry_count: int = 0):
         """Generate a new blog post and automatically publish it."""
+        max_retries = 2
+        
         try:
-            logger.info("Starting scheduled blog post generation...")
+            logger.info(f"Starting scheduled blog post generation (attempt {retry_count + 1})...")
             
             # Initialize clients
             gemini = GeminiClient()
@@ -121,13 +123,29 @@ class BlogGenerator:
             logger.info("Auto-publish complete and notification sent")
             
         except Exception as e:
-            logger.error(f"Error in scheduled generation: {e}", exc_info=True)
+            logger.error(f"Error in scheduled generation (attempt {retry_count + 1}): {e}", exc_info=True)
             
-            # Notify user of failure
+            # Retry if we haven't exceeded max retries
+            if retry_count < max_retries:
+                logger.info(f"Retrying in 30 seconds... (attempt {retry_count + 2}/{max_retries + 1})")
+                try:
+                    await self.bot.app.bot.send_message(
+                        chat_id=self.config.telegram_user_id,
+                        text=f"⚠️ <b>Auto-publish attempt {retry_count + 1} failed:</b>\n{str(e)}\n\nRetrying in 30 seconds...",
+                        parse_mode='HTML'
+                    )
+                except Exception:
+                    pass
+                
+                await asyncio.sleep(30)
+                await self.generate_and_auto_publish(retry_count + 1)
+                return
+            
+            # All retries exhausted - notify user of final failure
             try:
                 await self.bot.app.bot.send_message(
                     chat_id=self.config.telegram_user_id,
-                    text=f"❌ <b>Auto-publish failed:</b>\n{str(e)}",
+                    text=f"❌ <b>Auto-publish failed after {max_retries + 1} attempts:</b>\n{str(e)}\n\nUse /generate to try manually.",
                     parse_mode='HTML'
                 )
             except Exception as notify_error:

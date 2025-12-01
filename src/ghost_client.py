@@ -118,7 +118,8 @@ class GhostClient:
             response = requests.post(
                 url,
                 json=payload,
-                headers=self._get_headers()
+                headers=self._get_headers(),
+                timeout=60  # 60 second timeout
             )
             response.raise_for_status()
             
@@ -149,7 +150,7 @@ class GhostClient:
         get_url = f"{self.base_url}/ghost/api/admin/posts/{post_id}"
         
         try:
-            response = requests.get(get_url, headers=self._get_headers())
+            response = requests.get(get_url, headers=self._get_headers(), timeout=30)
             response.raise_for_status()
             current_post = response.json()['posts'][0]
             
@@ -166,7 +167,8 @@ class GhostClient:
             response = requests.put(
                 update_url,
                 json=payload,
-                headers=self._get_headers()
+                headers=self._get_headers(),
+                timeout=60
             )
             response.raise_for_status()
             

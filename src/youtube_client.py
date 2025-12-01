@@ -80,7 +80,7 @@ class YouTubeClient:
         }
         
         try:
-            response = requests.get(url, params=params)
+            response = requests.get(url, params=params, timeout=30)
             response.raise_for_status()
             data = response.json()
             
@@ -141,4 +141,5 @@ class YouTubeClient:
         
         logger.warning(f"No video found for topic: {topic}")
         return None
+
 

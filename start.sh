@@ -4,3 +4,4 @@
 echo "Starting Ghost Auto Blog Generator..."
 exec python -m src.main
 
+

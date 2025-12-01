@@ -65,7 +65,16 @@ class GeminiClient:
     def __init__(self):
         config = get_config()
         genai.configure(api_key=config.gemini_api_key)
-        self.model = genai.GenerativeModel(config.gemini_model)
+        
+        # Configure model with longer timeout for blog generation
+        generation_config = genai.GenerationConfig(
+            temperature=0.7,
+            max_output_tokens=8192,
+        )
+        self.model = genai.GenerativeModel(
+            config.gemini_model,
+            generation_config=generation_config
+        )
         self.topics = config.topics
     
     def _clean_json_response(self, text: str) -> str:
