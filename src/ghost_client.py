@@ -21,14 +21,19 @@ class GhostClient:
     
     def __init__(self):
         config = get_config()
-        self.api_key = config.ghost_admin_api_key
+        self.api_key = config.ghost_admin_api_key.strip()  # Remove any whitespace
         self.base_url = config.ghost_url
         
-        # Split the key into ID and SECRET
-        try:
-            self.key_id, self.key_secret = self.api_key.split(':')
-        except ValueError:
+        # Split the key into ID and SECRET (only split on first colon)
+        if ':' not in self.api_key:
+            logger.error(f"Ghost API key does not contain ':' separator. Key length: {len(self.api_key)}")
             raise ValueError("Invalid Ghost Admin API key format. Expected 'id:secret'")
+        
+        parts = self.api_key.split(':', 1)  # maxsplit=1 to handle secrets with colons
+        self.key_id = parts[0].strip()
+        self.key_secret = parts[1].strip()
+        
+        logger.info(f"Ghost client initialized for {self.base_url} (key_id: {self.key_id[:8]}...)")
     
     def _generate_token(self) -> str:
         """Generate a JWT token for Ghost Admin API authentication."""
