@@ -16,6 +16,7 @@ from .config import get_config
 from .telegram_bot import TelegramBot
 from .ghost_client import GhostClient
 from .gemini_client import GeminiClient
+from .unsplash_client import UnsplashClient
 
 # Configure logging
 logging.basicConfig(
@@ -47,6 +48,7 @@ class BlogGenerator:
             # Initialize clients
             gemini = GeminiClient()
             ghost = GhostClient()
+            unsplash = UnsplashClient()
             
             # Get recent titles to avoid duplicates
             recent_titles = ghost.get_recent_titles(limit=20)
@@ -60,6 +62,13 @@ class BlogGenerator:
             blog_post = gemini.generate_blog_post(topic)
             logger.info(f"Generated blog post: {blog_post.title}")
             
+            # Fetch a relevant image from Unsplash
+            image = unsplash.get_image_for_topic(topic, blog_post.image_keywords)
+            if image:
+                logger.info(f"Found image by {image.photographer_name}")
+            else:
+                logger.warning("No image found for topic")
+            
             # Send draft via Telegram for approval
             await self.bot.app.bot.send_message(
                 chat_id=self.config.telegram_user_id,
@@ -71,6 +80,7 @@ class BlogGenerator:
             await self.bot._send_draft_for_approval(
                 self.config.telegram_user_id,
                 blog_post,
+                image,
                 self.bot.app
             )
             

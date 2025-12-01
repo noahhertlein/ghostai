@@ -34,6 +34,9 @@ class Config:
     telegram_bot_token: str
     telegram_user_id: int
     
+    # Unsplash Configuration
+    unsplash_access_key: str
+    
     # Fields with defaults must come last
     gemini_model: str = "gemini-3-pro-preview"
     post_schedule_hours: int = 24  # Generate a post every N hours
@@ -69,6 +72,7 @@ def load_config() -> Config:
     gemini_api_key = os.environ.get('GEMINI_API_KEY')
     telegram_bot_token = os.environ.get('TELEGRAM_BOT_TOKEN')
     telegram_user_id = os.environ.get('TELEGRAM_USER_ID')
+    unsplash_access_key = os.environ.get('UNSPLASH_ACCESS_KEY')
     
     # Validate required variables
     missing = []
@@ -82,6 +86,8 @@ def load_config() -> Config:
         missing.append('TELEGRAM_BOT_TOKEN')
     if not telegram_user_id:
         missing.append('TELEGRAM_USER_ID')
+    if not unsplash_access_key:
+        missing.append('UNSPLASH_ACCESS_KEY')
     
     if missing:
         raise ValueError(f"Missing required environment variables: {', '.join(missing)}")
@@ -94,9 +100,10 @@ def load_config() -> Config:
         ghost_admin_api_key=ghost_admin_api_key,
         ghost_url=ghost_url.rstrip('/'),  # Remove trailing slash if present
         gemini_api_key=gemini_api_key,
-        gemini_model=gemini_model,
         telegram_bot_token=telegram_bot_token,
         telegram_user_id=int(telegram_user_id),
+        unsplash_access_key=unsplash_access_key,
+        gemini_model=gemini_model,
         post_schedule_hours=post_schedule_hours,
     )
 

@@ -68,13 +68,18 @@ class GhostClient:
             'Content-Type': 'application/json'
         }
     
-    def publish_post(self, blog_post: BlogPost, status: str = 'published') -> dict:
+    def publish_post(self, blog_post: BlogPost, status: str = 'published', 
+                     feature_image: str = None, feature_image_alt: str = None,
+                     feature_image_caption: str = None) -> dict:
         """
         Publish a blog post to Ghost.
         
         Args:
             blog_post: The BlogPost object to publish
             status: 'published' or 'draft'
+            feature_image: URL of the feature/hero image
+            feature_image_alt: Alt text for the feature image
+            feature_image_caption: Caption/attribution for the feature image
         
         Returns:
             The created post data from Ghost API
@@ -96,6 +101,14 @@ class GhostClient:
                 'custom_excerpt': blog_post.meta_description,
             }]
         }
+        
+        # Add feature image if provided
+        if feature_image:
+            payload['posts'][0]['feature_image'] = feature_image
+        if feature_image_alt:
+            payload['posts'][0]['feature_image_alt'] = feature_image_alt
+        if feature_image_caption:
+            payload['posts'][0]['feature_image_caption'] = feature_image_caption
         
         try:
             response = requests.post(

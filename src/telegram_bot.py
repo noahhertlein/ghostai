@@ -21,6 +21,7 @@ from telegram.ext import (
 from .config import get_config
 from .gemini_client import GeminiClient, BlogPost
 from .ghost_client import GhostClient
+from .unsplash_client import UnsplashClient, UnsplashImage
 
 logger = logging.getLogger(__name__)
 
@@ -37,9 +38,10 @@ class TelegramBot:
         # Clients
         self.gemini = GeminiClient()
         self.ghost = GhostClient()
+        self.unsplash = UnsplashClient()
         
-        # Pending posts awaiting approval (message_id -> BlogPost)
-        self.pending_posts: dict[int, BlogPost] = {}
+        # Pending posts awaiting approval (message_id -> (BlogPost, UnsplashImage))
+        self.pending_posts: dict[int, tuple[BlogPost, UnsplashImage]] = {}
         
         # External callback for scheduled generation
         self.on_generate_callback = on_generate_callback
@@ -112,8 +114,12 @@ class TelegramBot:
             # Generate full post
             blog_post = self.gemini.generate_blog_post(topic)
             
+            # Fetch a relevant image from Unsplash
+            await update.message.reply_text("🖼️ Finding a perfect image...")
+            image = self.unsplash.get_image_for_topic(topic, blog_post.image_keywords)
+            
             # Send draft for approval
-            await self._send_draft_for_approval(update.effective_chat.id, blog_post, context)
+            await self._send_draft_for_approval(update.effective_chat.id, blog_post, image, context)
             
         except Exception as e:
             logger.error(f"Error generating post: {e}")
@@ -170,7 +176,8 @@ class TelegramBot:
         except Exception as e:
             await update.message.reply_text(f"❌ Error generating topics: {str(e)}")
     
-    async def _send_draft_for_approval(self, chat_id: int, blog_post: BlogPost, context: ContextTypes.DEFAULT_TYPE):
+    async def _send_draft_for_approval(self, chat_id: int, blog_post: BlogPost, 
+                                        image: UnsplashImage, context: ContextTypes.DEFAULT_TYPE):
         """Send a draft post to Telegram for approval."""
         
         # Truncate content preview
@@ -182,12 +189,18 @@ class TelegramBot:
         
         tags_str = ", ".join(blog_post.tags)
         
+        # Build image info
+        image_info = "❌ No image found"
+        if image:
+            image_info = f"📸 by {image.photographer_name}"
+        
         message_text = (
             f"📄 <b>NEW DRAFT FOR REVIEW</b>\n\n"
             f"<b>Title:</b> {html.escape(blog_post.title)}\n\n"
             f"<b>Slug:</b> {html.escape(blog_post.slug)}\n\n"
             f"<b>Meta:</b> {html.escape(blog_post.meta_description)}\n\n"
             f"<b>Tags:</b> {html.escape(tags_str)}\n\n"
+            f"<b>Image:</b> {image_info}\n\n"
             f"<b>Preview:</b>\n{content_preview}...\n\n"
             f"─────────────────────"
         )
@@ -199,8 +212,20 @@ class TelegramBot:
             ],
             [
                 InlineKeyboardButton("🔄 Regenerate", callback_data="regenerate"),
+                InlineKeyboardButton("🖼️ New Image", callback_data="new_image"),
             ]
         ])
+        
+        # Send image preview first if available
+        if image:
+            try:
+                await context.bot.send_photo(
+                    chat_id=chat_id,
+                    photo=image.thumb_url,
+                    caption=f"🖼️ Feature image by {image.photographer_name}"
+                )
+            except Exception as e:
+                logger.warning(f"Failed to send image preview: {e}")
         
         sent_message = await context.bot.send_message(
             chat_id=chat_id,
@@ -209,8 +234,8 @@ class TelegramBot:
             reply_markup=keyboard
         )
         
-        # Store pending post
-        self.pending_posts[sent_message.message_id] = blog_post
+        # Store pending post with image
+        self.pending_posts[sent_message.message_id] = (blog_post, image)
         logger.info(f"Draft sent for approval: {blog_post.title} (msg_id: {sent_message.message_id})")
     
     async def _handle_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -223,22 +248,25 @@ class TelegramBot:
             return
         
         message_id = query.message.message_id
-        blog_post = self.pending_posts.get(message_id)
+        pending = self.pending_posts.get(message_id)
         
-        if not blog_post:
+        if not pending:
             await query.edit_message_text("❌ This draft has expired or was already processed.")
             return
         
+        blog_post, image = pending
         action = query.data
         
         if action == "approve":
-            await self._handle_approve(query, blog_post, message_id)
+            await self._handle_approve(query, blog_post, image, message_id)
         elif action == "reject":
             await self._handle_reject(query, blog_post, message_id)
         elif action == "regenerate":
             await self._handle_regenerate(query, blog_post, message_id, context)
+        elif action == "new_image":
+            await self._handle_new_image(query, blog_post, message_id, context)
     
-    async def _handle_approve(self, query, blog_post: BlogPost, message_id: int):
+    async def _handle_approve(self, query, blog_post: BlogPost, image: UnsplashImage, message_id: int):
         """Handle approval of a blog post."""
         try:
             await query.edit_message_text(
@@ -246,16 +274,35 @@ class TelegramBot:
                 parse_mode='HTML'
             )
             
-            # Publish to Ghost
-            post_data = self.ghost.publish_post(blog_post, status='published')
+            # Prepare image data for Ghost
+            feature_image = None
+            feature_image_alt = None
+            feature_image_caption = None
+            
+            if image:
+                feature_image = image.url
+                feature_image_alt = image.alt_text
+                feature_image_caption = image.get_attribution_html()
+            
+            # Publish to Ghost with feature image
+            post_data = self.ghost.publish_post(
+                blog_post, 
+                status='published',
+                feature_image=feature_image,
+                feature_image_alt=feature_image_alt,
+                feature_image_caption=feature_image_caption
+            )
             post_url = f"{self.ghost_url}/{blog_post.slug}/"
             
             # Remove from pending
             del self.pending_posts[message_id]
             
+            image_status = "✅ With feature image" if image else "⚠️ No image"
+            
             await query.edit_message_text(
                 f"✅ <b>Published successfully!</b>\n\n"
                 f"<b>Title:</b> {html.escape(blog_post.title)}\n"
+                f"<b>Image:</b> {image_status}\n"
                 f"<b>URL:</b> {post_url}",
                 parse_mode='HTML'
             )
@@ -289,18 +336,42 @@ class TelegramBot:
         try:
             await query.edit_message_text("🔄 Regenerating article with same topic...")
             
+            # Extract topic from title
+            topic = blog_post.title.split(':')[-1].strip() if ':' in blog_post.title else blog_post.title
+            
             # Generate new version
-            new_post = self.gemini.generate_blog_post(blog_post.title.split(':')[-1].strip() if ':' in blog_post.title else blog_post.title)
+            new_post = self.gemini.generate_blog_post(topic)
+            
+            # Fetch new image
+            image = self.unsplash.get_image_for_topic(topic, new_post.image_keywords)
             
             # Remove old pending
             del self.pending_posts[message_id]
             
             # Send new draft
-            await self._send_draft_for_approval(query.message.chat_id, new_post, context)
+            await self._send_draft_for_approval(query.message.chat_id, new_post, image, context)
             
         except Exception as e:
             logger.error(f"Error regenerating post: {e}")
             await query.edit_message_text(f"❌ Error regenerating: {str(e)}")
+    
+    async def _handle_new_image(self, query, blog_post: BlogPost, message_id: int, context: ContextTypes.DEFAULT_TYPE):
+        """Handle request for a new image."""
+        try:
+            await query.edit_message_text("🖼️ Finding a new image...")
+            
+            # Get a random new image
+            image = self.unsplash.get_random_photo(blog_post.image_keywords[0] if blog_post.image_keywords else blog_post.title)
+            
+            # Remove old pending
+            del self.pending_posts[message_id]
+            
+            # Send updated draft with new image
+            await self._send_draft_for_approval(query.message.chat_id, blog_post, image, context)
+            
+        except Exception as e:
+            logger.error(f"Error getting new image: {e}")
+            await query.edit_message_text(f"❌ Error getting new image: {str(e)}")
     
     async def send_scheduled_draft(self):
         """Generate and send a scheduled draft. Called by the scheduler."""
@@ -314,11 +385,15 @@ class TelegramBot:
             topic = self.gemini.generate_topic(previous_topics=recent_titles)
             blog_post = self.gemini.generate_blog_post(topic)
             
+            # Fetch a relevant image
+            image = self.unsplash.get_image_for_topic(topic, blog_post.image_keywords)
+            
             # Send for approval
             async with self.app:
                 await self._send_draft_for_approval(
                     self.authorized_user_id,
                     blog_post,
+                    image,
                     self.app
                 )
             

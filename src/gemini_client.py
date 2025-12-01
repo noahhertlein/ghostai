@@ -24,6 +24,7 @@ class BlogPost:
     meta_description: str
     html_content: str
     tags: list[str]
+    image_keywords: list[str]  # Keywords for Unsplash image search
     
     def to_dict(self) -> dict:
         return {
@@ -32,6 +33,7 @@ class BlogPost:
             'meta_description': self.meta_description,
             'html_content': self.html_content,
             'tags': self.tags,
+            'image_keywords': self.image_keywords,
         }
 
 
@@ -102,7 +104,8 @@ Respond in this exact JSON format (no markdown code blocks, just raw JSON):
     "slug": "url-friendly-slug-with-dashes",
     "meta_description": "Compelling 150-160 character description for search results",
     "html_content": "<p>Full HTML content here...</p>",
-    "tags": ["Tag1", "Tag2", "Tag3", "Tag4", "Tag5"]
+    "tags": ["Tag1", "Tag2", "Tag3", "Tag4", "Tag5"],
+    "image_keywords": ["keyword1", "keyword2", "keyword3"]
 }}
 
 For html_content:
@@ -116,7 +119,9 @@ For html_content:
 - Do NOT include <h1> (Ghost adds the title automatically)
 - Do NOT include any scripts or external resources
 
-Tags should be single words or short phrases, capitalized properly."""
+Tags should be single words or short phrases, capitalized properly.
+
+image_keywords should be 3 simple, visual search terms for finding a relevant header image (e.g., "cloud computing", "server room", "cybersecurity")."""
 
         try:
             response = self.model.generate_content(prompt)
@@ -135,6 +140,7 @@ Tags should be single words or short phrases, capitalized properly."""
                 meta_description=data['meta_description'],
                 html_content=data['html_content'],
                 tags=data['tags'][:5],  # Limit to 5 tags
+                image_keywords=data.get('image_keywords', [topic])[:3],  # Fallback to topic
             )
             
             logger.info(f"Generated blog post: {blog_post.title}")
@@ -166,10 +172,12 @@ Respond in this exact JSON format (no markdown code blocks, just raw JSON):
     "slug": "url-friendly-slug-with-dashes",
     "meta_description": "Compelling 150-160 character description for search results",
     "html_content": "<p>Full HTML content here...</p>",
-    "tags": ["Tag1", "Tag2", "Tag3", "Tag4", "Tag5"]
+    "tags": ["Tag1", "Tag2", "Tag3", "Tag4", "Tag5"],
+    "image_keywords": ["keyword1", "keyword2", "keyword3"]
 }}
 
-Use proper HTML formatting. Length: 800-1200 words."""
+Use proper HTML formatting. Length: 800-1200 words.
+image_keywords should be 3 simple visual search terms for finding a header image."""
 
         try:
             response = self.model.generate_content(prompt)
@@ -187,6 +195,7 @@ Use proper HTML formatting. Length: 800-1200 words."""
                 meta_description=data['meta_description'],
                 html_content=data['html_content'],
                 tags=data['tags'][:5],
+                image_keywords=data.get('image_keywords', [topic])[:3],
             )
         except Exception as e:
             logger.error(f"Error regenerating blog post: {e}")
