@@ -29,16 +29,14 @@ class Config:
     
     # Gemini AI Configuration
     gemini_api_key: str
-    gemini_model: str = "gemini-3-pro-preview"
     
     # Telegram Bot Configuration
     telegram_bot_token: str
     telegram_user_id: int
     
-    # Scheduling Configuration
+    # Fields with defaults must come last
+    gemini_model: str = "gemini-3-pro-preview"
     post_schedule_hours: int = 24  # Generate a post every N hours
-    
-    # Content Configuration
     topics: list = None
     
     def __post_init__(self):
