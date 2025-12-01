@@ -71,9 +71,10 @@ class TelegramBot:
         
         await update.message.reply_text(
             "🤖 <b>Ghost Auto Blog Generator</b>\n\n"
-            "I generate tech blog posts using AI and publish them to your Ghost blog.\n\n"
+            "I automatically generate and publish tech blog posts to your Ghost blog.\n\n"
+            "📅 <b>Auto-posts:</b> 9 AM and 3 PM UTC daily\n\n"
             "<b>Commands:</b>\n"
-            "/generate - Create a new blog post\n"
+            "/generate - Manually publish a new post now\n"
             "/status - Check bot status\n"
             "/topics - See topic ideas\n"
             "/help - Show this help message",
@@ -87,16 +88,19 @@ class TelegramBot:
         
         await update.message.reply_text(
             "📚 <b>How it works:</b>\n\n"
-            "1. Use /generate or wait for scheduled generation\n"
-            "2. Review the generated draft\n"
-            "3. Tap ✅ Approve to publish or ❌ Reject to discard\n"
-            "4. Use 🔄 Regenerate to get a new version\n\n"
-            f"Posts are published to: {self.ghost_url}",
+            "🤖 <b>Auto-Publish Mode</b>\n"
+            "Posts are automatically generated and published:\n"
+            "• 9:00 AM UTC - Morning post\n"
+            "• 3:00 PM UTC - Afternoon post\n\n"
+            "You'll receive a notification after each post is published.\n\n"
+            "📝 <b>Manual Publishing</b>\n"
+            "Use /generate to create and publish a post immediately.\n\n"
+            f"📍 <b>Blog:</b> {self.ghost_url}",
             parse_mode='HTML'
         )
     
     async def _cmd_generate(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /generate command - create a new blog post."""
+        """Handle /generate command - create and auto-publish a new blog post."""
         if not self._is_authorized(update.effective_user.id):
             await update.message.reply_text("⛔ Unauthorized.")
             return
@@ -118,12 +122,53 @@ class TelegramBot:
             await update.message.reply_text("🖼️ Finding a perfect image...")
             image = self.unsplash.get_image_for_topic(topic, blog_post.image_keywords)
             
-            # Send draft for approval
-            await self._send_draft_for_approval(update.effective_chat.id, blog_post, image, context)
+            # Auto-publish
+            await update.message.reply_text("📤 Publishing to Ghost...")
+            
+            # Prepare image data
+            feature_image = image.url if image else None
+            feature_image_alt = image.alt_text if image else None
+            feature_image_caption = image.get_attribution_html() if image else None
+            
+            # Publish to Ghost
+            post_data = self.ghost.publish_post(
+                blog_post,
+                status='published',
+                feature_image=feature_image,
+                feature_image_alt=feature_image_alt,
+                feature_image_caption=feature_image_caption
+            )
+            
+            post_url = f"{self.ghost_url}/{blog_post.slug}/"
+            image_status = f"📸 by {image.photographer_name}" if image else "⚠️ No image"
+            tags_str = ", ".join(blog_post.tags)
+            
+            # Send success message
+            await update.message.reply_text(
+                f"✅ <b>Published Successfully!</b>\n\n"
+                f"<b>Title:</b> {html.escape(blog_post.title)}\n\n"
+                f"<b>Tags:</b> {html.escape(tags_str)}\n\n"
+                f"<b>Image:</b> {image_status}\n\n"
+                f"<b>URL:</b> {post_url}",
+                parse_mode='HTML'
+            )
+            
+            # Send image preview
+            if image:
+                try:
+                    await context.bot.send_photo(
+                        chat_id=update.effective_chat.id,
+                        photo=image.thumb_url,
+                        caption=f"🖼️ Feature image"
+                    )
+                except Exception:
+                    pass
+            
+            logger.info(f"Manually published post: {blog_post.title}")
             
         except Exception as e:
             logger.error(f"Error generating post: {e}")
-            await update.message.reply_text(f"❌ Error generating post: {str(e)}")
+            await update.message.reply_text(f"❌ Error: {str(e)}")
     
     async def _cmd_status(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /status command."""
@@ -139,12 +184,11 @@ class TelegramBot:
             recent = self.ghost.get_posts(limit=3)
             recent_list = "\n".join([f"  • {p['title'][:40]}..." for p in recent]) if recent else "  No posts found"
             
-            pending_count = len(self.pending_posts)
-            
             await update.message.reply_text(
                 f"📊 <b>Bot Status</b>\n\n"
-                f"Ghost API: {ghost_status}\n"
-                f"Pending approvals: {pending_count}\n\n"
+                f"<b>Mode:</b> Auto-Publish ✨\n"
+                f"<b>Schedule:</b> 9 AM & 3 PM UTC\n"
+                f"<b>Ghost API:</b> {ghost_status}\n\n"
                 f"<b>Recent posts:</b>\n{recent_list}",
                 parse_mode='HTML'
             )

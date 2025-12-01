@@ -7,10 +7,10 @@ import asyncio
 import logging
 import signal
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.interval import IntervalTrigger
+from apscheduler.triggers.cron import CronTrigger
 
 from .config import get_config
 from .telegram_bot import TelegramBot
@@ -40,8 +40,8 @@ class BlogGenerator:
         self.scheduler = AsyncIOScheduler()
         self.running = False
     
-    async def generate_and_send_draft(self):
-        """Generate a new blog post and send it for approval via Telegram."""
+    async def generate_and_auto_publish(self):
+        """Generate a new blog post and automatically publish it."""
         try:
             logger.info("Starting scheduled blog post generation...")
             
@@ -69,22 +69,51 @@ class BlogGenerator:
             else:
                 logger.warning("No image found for topic")
             
-            # Send draft via Telegram for approval
+            # Prepare image data for Ghost
+            feature_image = image.url if image else None
+            feature_image_alt = image.alt_text if image else None
+            feature_image_caption = image.get_attribution_html() if image else None
+            
+            # Auto-publish to Ghost
+            post_data = ghost.publish_post(
+                blog_post,
+                status='published',
+                feature_image=feature_image,
+                feature_image_alt=feature_image_alt,
+                feature_image_caption=feature_image_caption
+            )
+            
+            post_url = f"{self.config.ghost_url}/{blog_post.slug}/"
+            logger.info(f"Auto-published: {blog_post.title}")
+            
+            # Send notification to Telegram (no approval needed)
+            image_status = f"📸 by {image.photographer_name}" if image else "⚠️ No image"
+            tags_str = ", ".join(blog_post.tags)
+            
             await self.bot.app.bot.send_message(
                 chat_id=self.config.telegram_user_id,
-                text=f"🔔 <b>Scheduled Post Ready!</b>\n\nGenerating draft for: {topic}",
+                text=(
+                    f"✅ <b>Auto-Published New Post!</b>\n\n"
+                    f"<b>Title:</b> {blog_post.title}\n\n"
+                    f"<b>Tags:</b> {tags_str}\n\n"
+                    f"<b>Image:</b> {image_status}\n\n"
+                    f"<b>URL:</b> {post_url}"
+                ),
                 parse_mode='HTML'
             )
             
-            # Use the bot's method to send draft
-            await self.bot._send_draft_for_approval(
-                self.config.telegram_user_id,
-                blog_post,
-                image,
-                self.bot.app
-            )
+            # Send image preview
+            if image:
+                try:
+                    await self.bot.app.bot.send_photo(
+                        chat_id=self.config.telegram_user_id,
+                        photo=image.thumb_url,
+                        caption=f"🖼️ Feature image for: {blog_post.title[:50]}..."
+                    )
+                except Exception:
+                    pass
             
-            logger.info("Scheduled draft sent successfully")
+            logger.info("Auto-publish complete and notification sent")
             
         except Exception as e:
             logger.error(f"Error in scheduled generation: {e}", exc_info=True)
@@ -93,27 +122,34 @@ class BlogGenerator:
             try:
                 await self.bot.app.bot.send_message(
                     chat_id=self.config.telegram_user_id,
-                    text=f"❌ <b>Scheduled generation failed:</b>\n{str(e)}",
+                    text=f"❌ <b>Auto-publish failed:</b>\n{str(e)}",
                     parse_mode='HTML'
                 )
             except Exception as notify_error:
                 logger.error(f"Failed to send error notification: {notify_error}")
     
     def setup_scheduler(self):
-        """Set up the scheduled job for automatic post generation."""
-        hours = self.config.post_schedule_hours
+        """Set up scheduled jobs for automatic post generation (2 per day)."""
         
-        # Schedule the job
+        # Morning post at 9:00 AM UTC
         self.scheduler.add_job(
-            self.generate_and_send_draft,
-            trigger=IntervalTrigger(hours=hours),
-            id='generate_blog_post',
-            name=f'Generate blog post every {hours} hours',
-            next_run_time=datetime.now() + timedelta(hours=hours),  # First run after interval
+            self.generate_and_auto_publish,
+            trigger=CronTrigger(hour=9, minute=0),
+            id='morning_post',
+            name='Morning blog post (9 AM)',
             replace_existing=True,
         )
         
-        logger.info(f"Scheduled automatic post generation every {hours} hours")
+        # Afternoon post at 3:00 PM (15:00) UTC
+        self.scheduler.add_job(
+            self.generate_and_auto_publish,
+            trigger=CronTrigger(hour=15, minute=0),
+            id='afternoon_post',
+            name='Afternoon blog post (3 PM)',
+            replace_existing=True,
+        )
+        
+        logger.info("Scheduled automatic posts: 9 AM and 3 PM UTC")
     
     async def startup(self):
         """Initialize and start all components."""
@@ -124,7 +160,7 @@ class BlogGenerator:
         # Validate configuration
         logger.info(f"Ghost URL: {self.config.ghost_url}")
         logger.info(f"Gemini Model: {self.config.gemini_model}")
-        logger.info(f"Schedule: Every {self.config.post_schedule_hours} hours")
+        logger.info("Schedule: 9 AM and 3 PM UTC (2 posts per day)")
         
         # Test Ghost connection
         ghost = GhostClient()
@@ -136,7 +172,7 @@ class BlogGenerator:
         # Start the scheduler
         self.setup_scheduler()
         self.scheduler.start()
-        logger.info("✓ Scheduler started")
+        logger.info("✓ Scheduler started (auto-publish mode)")
         
         # Start the Telegram bot
         await self.bot.run_async()
@@ -144,7 +180,8 @@ class BlogGenerator:
         
         self.running = True
         logger.info("=" * 50)
-        logger.info("Bot is running! Send /start to @NohatekGhostBot")
+        logger.info("Bot is running in AUTO-PUBLISH mode!")
+        logger.info("Posts will publish automatically at 9 AM and 3 PM UTC")
         logger.info("=" * 50)
     
     async def shutdown(self):
