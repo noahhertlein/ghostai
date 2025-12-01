@@ -46,6 +46,49 @@ class GeminiClient:
         self.model = genai.GenerativeModel(config.gemini_model)
         self.topics = config.topics
     
+    def _clean_json_response(self, text: str) -> str:
+        """
+        Clean up JSON response from Gemini to handle control characters.
+        Gemini sometimes includes unescaped newlines/tabs in JSON strings.
+        """
+        # Track if we're inside a JSON string
+        result = []
+        in_string = False
+        escape_next = False
+        
+        for char in text:
+            if escape_next:
+                result.append(char)
+                escape_next = False
+                continue
+            
+            if char == '\\':
+                result.append(char)
+                escape_next = True
+                continue
+            
+            if char == '"':
+                in_string = not in_string
+                result.append(char)
+                continue
+            
+            # If inside a string, escape control characters
+            if in_string:
+                if char == '\n':
+                    result.append('\\n')
+                elif char == '\r':
+                    result.append('\\r')
+                elif char == '\t':
+                    result.append('\\t')
+                elif ord(char) < 32:  # Other control characters
+                    result.append(f'\\u{ord(char):04x}')
+                else:
+                    result.append(char)
+            else:
+                result.append(char)
+        
+        return ''.join(result)
+    
     def generate_topic(self, previous_topics: list[str] = None) -> str:
         """Generate a fresh blog topic idea."""
         
@@ -132,6 +175,10 @@ image_keywords should be 3 simple, visual search terms for finding a relevant he
             if json_match:
                 response_text = json_match.group()
             
+            # Clean up control characters that break JSON parsing
+            # Replace literal newlines inside strings with escaped versions
+            response_text = self._clean_json_response(response_text)
+            
             data = json.loads(response_text)
             
             blog_post = BlogPost(
@@ -186,6 +233,9 @@ image_keywords should be 3 simple visual search terms for finding a header image
             json_match = re.search(r'\{[\s\S]*\}', response_text)
             if json_match:
                 response_text = json_match.group()
+            
+            # Clean up control characters
+            response_text = self._clean_json_response(response_text)
             
             data = json.loads(response_text)
             
