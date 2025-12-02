@@ -157,7 +157,7 @@ class BlogGenerator:
         # Morning post at 9:00 AM UTC
         self.scheduler.add_job(
             self.generate_and_auto_publish,
-            trigger=CronTrigger(hour=9, minute=0),
+            trigger=CronTrigger(hour=15, minute=0),
             id='morning_post',
             name='Morning blog post (9 AM)',
             replace_existing=True,
@@ -166,7 +166,7 @@ class BlogGenerator:
         # Afternoon post at 3:00 PM (15:00) UTC
         self.scheduler.add_job(
             self.generate_and_auto_publish,
-            trigger=CronTrigger(hour=15, minute=0),
+            trigger=CronTrigger(hour=23, minute=0),
             id='afternoon_post',
             name='Afternoon blog post (3 PM)',
             replace_existing=True,
