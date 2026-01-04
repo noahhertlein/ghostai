@@ -120,12 +120,25 @@ class GeminiClient:
         
         return ''.join(result)
     
-    def generate_topic(self, previous_topics: list[str] = None) -> str:
-        """Generate a fresh blog topic idea."""
+    def generate_topic(self, previous_topics: list[str] = None, trending_topics: list[str] = None) -> str:
+        """Generate a fresh blog topic idea, optionally informed by trending topics."""
         
         previous_str = ""
         if previous_topics:
             previous_str = f"\n\nAvoid these recently covered topics:\n" + "\n".join(f"- {t}" for t in previous_topics[-20:])
+        
+        trending_str = ""
+        if trending_topics:
+            trending_str = f"""
+
+CURRENT TRENDING TOPICS IN TECH (use these as inspiration for timely content):
+{chr(10).join(f'- {t}' for t in trending_topics[:15])}
+
+Use these trends as inspiration to write about something timely and newsworthy. You can:
+- Write directly about a trending topic if it fits Nohatek's expertise
+- Find an angle that connects a trend to cloud/AI/DevOps/security
+- Analyze implications of a trend for businesses
+- Provide practical guidance related to trending news"""
         
         prompt = f"""You are a tech content strategist for Nohatek, a company specializing in:
 - Cloud Infrastructure & DevOps
@@ -140,8 +153,9 @@ The topic should be:
 2. Specific enough to write a focused article (not too broad)
 3. Actionable or educational for the reader
 4. SEO-friendly with good search potential
+{trending_str}
 
-Focus areas to choose from: {', '.join(self.topics)}
+Our expertise areas: {', '.join(self.topics)}
 {previous_str}
 
 Respond with ONLY the topic title, nothing else. No quotes, no explanation."""

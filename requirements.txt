@@ -9,6 +9,9 @@ python-telegram-bot>=21.0
 # HTTP Requests
 requests>=2.31.0
 
+# RSS Feed Parsing (for trending topics)
+feedparser>=6.0.0
+
 # JWT for Ghost Admin API authentication
 PyJWT>=2.8.0
 

@@ -17,6 +17,7 @@ from .telegram_bot import TelegramBot
 from .ghost_client import GhostClient
 from .gemini_client import GeminiClient
 from .content_enricher import ContentEnricher
+from .trending_client import TrendingClient
 
 # Configure logging
 logging.basicConfig(
@@ -51,13 +52,22 @@ class BlogGenerator:
             gemini = GeminiClient()
             ghost = GhostClient()
             enricher = ContentEnricher()
+            trending = TrendingClient()
             
             # Get recent titles to avoid duplicates
             recent_titles = ghost.get_recent_titles(limit=20)
             logger.info(f"Found {len(recent_titles)} recent posts")
             
-            # Generate topic
-            topic = gemini.generate_topic(previous_topics=recent_titles)
+            # Fetch trending topics for inspiration
+            trending_topics = []
+            try:
+                trending_topics = trending.get_trending_topics(limit=15)
+                logger.info(f"Fetched {len(trending_topics)} trending topics for inspiration")
+            except Exception as e:
+                logger.warning(f"Failed to fetch trending topics, using static topics: {e}")
+            
+            # Generate topic (with trending context if available)
+            topic = gemini.generate_topic(previous_topics=recent_titles, trending_topics=trending_topics)
             logger.info(f"Generated topic: {topic}")
             
             # Generate full blog post
