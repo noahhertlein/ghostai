@@ -135,24 +135,36 @@ CURRENT TRENDING TOPICS IN TECH (use these as inspiration for timely content):
 {chr(10).join(f'- {t}' for t in trending_topics[:15])}
 
 Use these trends as inspiration to write about something timely and newsworthy. You can:
-- Write directly about a trending topic if it fits Nohatek's expertise
-- Find an angle that connects a trend to cloud/AI/DevOps/security
-- Analyze implications of a trend for businesses
-- Provide practical guidance related to trending news"""
+- Write directly about a trending topic if it fits NohaTek's expertise
+- Find an angle that connects a trend to cloud/AI/DevOps/security/supply chain
+- Analyze implications of a trend for retail, logistics, or supplier businesses
+- Provide practical guidance related to trending news for the NWA business community"""
         
-        prompt = f"""You are a tech content strategist for Nohatek, a company specializing in:
+        prompt = f"""You are a tech content strategist for NohaTek, a technology consulting company based in Rogers, Arkansas \
+in the heart of Northwest Arkansas (NWA). NohaTek is a technical partner for businesses in the NWA region, which is home to:
+- Walmart (Bentonville) and its massive supplier/vendor ecosystem
+- Tyson Foods (Springdale) and the food supply chain industry
+- J.B. Hunt (Lowell) and the logistics/transportation sector
+- Hundreds of CPG suppliers, tech companies, and startups serving these anchor enterprises
+
+NohaTek specializes in:
 - Cloud Infrastructure & DevOps
 - AI & Machine Learning Services
-- Software Development
+- Software Development & API Integration
 - Cybersecurity
+- Supply Chain Technology & Logistics Solutions
+- Retail Tech, EDI, & Supplier Integration
+- Data Analytics & Business Intelligence
+- Warehouse Automation & IoT
 
-Generate ONE specific, engaging blog topic idea that would interest potential customers and tech professionals.
+Generate ONE specific, engaging blog topic idea that would interest businesses and tech professionals in Northwest Arkansas and the broader supply chain / retail / logistics industry.
 
 The topic should be:
-1. Timely and relevant to current tech trends
+1. Timely and relevant to current tech trends in supply chain, retail, logistics, or enterprise IT
 2. Specific enough to write a focused article (not too broad)
 3. Actionable or educational for the reader
 4. SEO-friendly with good search potential
+5. Appealing to NWA businesses or companies working with major retailers and suppliers
 {trending_str}
 
 Our expertise areas: {', '.join(self.topics)}
@@ -174,18 +186,25 @@ Respond with ONLY the topic title, nothing else. No quotes, no explanation."""
         
         prompt = f"""Write a professional, engaging blog post about: "{topic}"
 
-This is for Nohatek's tech blog (intel.nohatek.com), targeting:
-- IT professionals and developers
-- CTOs and tech decision makers
-- Companies looking for cloud, AI, or development services
+This is for NohaTek's tech blog (intel.nohatek.com). NohaTek is a technology consulting company based in Rogers, Arkansas, \
+serving as a technical partner for businesses across Northwest Arkansas (NWA) — a region anchored by Walmart, Tyson Foods, \
+J.B. Hunt, and a thriving ecosystem of CPG suppliers, vendors, and tech startups.
+
+Target audience:
+- IT professionals, developers, and DevOps engineers
+- CTOs, VPs of Technology, and tech decision makers
+- Supply chain managers and logistics professionals
+- Retail and CPG technology teams
+- Companies in NWA and beyond looking for cloud, AI, supply chain tech, or development services
 
 Requirements:
 1. Write in a professional but approachable tone
 2. Include practical insights, examples, or actionable advice
-3. Use proper HTML formatting for Ghost CMS
-4. Length: 1000-1500 words total
-5. Make it SEO-optimized
-6. Structure with clear sections (3-4 main sections)
+3. Where relevant, include references to supply chain, retail, logistics, or the NWA business ecosystem
+4. Use proper HTML formatting for Ghost CMS
+5. Length: 1000-1500 words total
+6. Make it SEO-optimized
+7. Structure with clear sections (3-4 main sections)
 
 Respond in this exact JSON format (no markdown code blocks, just raw JSON):
 {{
@@ -286,7 +305,10 @@ video_keywords should be terms to find a relevant YouTube tutorial/explainer."""
 
 Previous feedback to incorporate: {feedback}
 
-This is for Nohatek's tech blog (intel.nohatek.com), targeting IT professionals, developers, and tech decision makers.
+This is for NohaTek's tech blog (intel.nohatek.com). NohaTek is based in Rogers, AR and serves as a technical partner \
+for businesses across Northwest Arkansas — home to Walmart, Tyson Foods, J.B. Hunt, and a large supplier/vendor ecosystem. \
+Target audience includes IT professionals, developers, supply chain managers, logistics pros, and tech decision makers. \
+Where relevant, include references to supply chain, retail, logistics, or the NWA business community.
 
 Respond in this exact JSON format (no markdown code blocks, just raw JSON):
 {{
