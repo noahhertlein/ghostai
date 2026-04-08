@@ -77,37 +77,45 @@ class ContentEnricher:
         )
     
     def _build_enriched_html(
-        self, 
-        blog_post: BlogPost, 
+        self,
+        blog_post: BlogPost,
         section_images: list[Optional[UnsplashImage]],
         video: Optional[YouTubeVideo]
     ) -> str:
         """Build the full HTML content with embedded media."""
         parts = []
-        
+
         # Introduction
         parts.append(blog_post.intro)
-        
-        # Add video after intro (if available)
+
+        # Key takeaways callout box (after intro, before video)
+        if getattr(blog_post, 'key_takeaways', None):
+            parts.append(blog_post.key_takeaways)
+
+        # Add video after key takeaways (if available)
         if video:
             parts.append(video.get_embed_html())
-        
+
         # Sections with images
         for i, section in enumerate(blog_post.sections):
             # Section heading
             parts.append(f"<h2>{section.heading}</h2>")
-            
+
             # Section image (if available)
             if i < len(section_images) and section_images[i]:
                 image = section_images[i]
                 parts.append(self._get_image_html(image, section.heading))
-            
+
             # Section content
             parts.append(section.content)
-        
+
         # Conclusion
         parts.append(blog_post.conclusion)
-        
+
+        # CTA section (after conclusion)
+        if getattr(blog_post, 'cta_section', None):
+            parts.append(blog_post.cta_section)
+
         return "\n\n".join(parts)
     
     def _get_image_html(self, image: UnsplashImage, alt_context: str) -> str:
